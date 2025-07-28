@@ -2,47 +2,26 @@ import java.time.LocalDate;
 import java.util.*;
 
 public class PhotoManager {
-    // photo indexes (for fast lookup)
-    private final Map<String, Set<Photo>> photosByLocation = new HashMap<>();
-    private final Map<String, Set<Photo>> photosByTag = new HashMap<>();
-    private final Map<String, Photo> photosById = new HashMap<>();
-    private final Map<LocalDate, Set<Photo>> photosByDate = new HashMap<>();
-    private final Map<String, Photo> photosByFilename = new HashMap<>();
+    private final List<Photo> photos = new ArrayList<>();
 
     public void uploadPhoto(Photo photo) {
-        if (photo == null || photo.getId() == null || photo.getFilename() == null) {
-            throw new IllegalArgumentException("Photo and its ID and filename cannot be null");
+        if (photo == null) {
+            throw new IllegalArgumentException("Photo cannot be null");
         }
 
-        if (photosById.containsKey(photo.getId())) {
-            throw new IllegalArgumentException("Photo with this ID already exists");
+        if (photo.getId() == null || photo.getId().isEmpty()) {
+            throw new IllegalArgumentException("Photo ID cannot be null or empty");
         }
 
-        photosById.put(photo.getId(), photo);
-
-        if (photosByFilename.containsKey(photo.getFilename())) {
-            throw new IllegalArgumentException("Photo with this filename already exists");
+        if (photo.getFilename() == null || photo.getFilename().isEmpty()) {
+            throw new IllegalArgumentException("Photo filename cannot be null or empty");
         }
 
-        photosByFilename.put(photo.getFilename(), photo);
-
-        if (photo.getDate() != null) {
-            photosByDate.computeIfAbsent(photo.getDate(), k -> new HashSet<>()).add(photo);
-        }
-
-        if (photo.getLocation() != null) {
-            photosByLocation.computeIfAbsent(photo.getLocation(), k -> new HashSet<>()).add(photo);
-        }
-
-        if (photo.getTags() != null) {
-            for (String tag : photo.getTags()) {
-                photosByTag.computeIfAbsent(tag, k -> new HashSet<>()).add(photo);
-            }
-        }
+        photos.add(photo);
     }
 
     public List<Photo> getPhotos() {
-        return new ArrayList<>(photosById.values());
+        return photos;
     }
 
     public List<Photo> searchByTag(String tag) {
@@ -50,8 +29,7 @@ public class PhotoManager {
             throw new IllegalArgumentException("Tag cannot be null or empty");
         }
 
-        return photosByTag.getOrDefault(tag, Collections.emptySet())
-                .stream()
+        return photos.stream().filter(photo -> photo.getTags().contains(tag))
                 .toList();
     }
 
@@ -60,12 +38,9 @@ public class PhotoManager {
             throw new IllegalArgumentException("Tags cannot be null or empty");
         }
 
-        List<Photo> result = new ArrayList<>();
-        for (String tag : tags) {
-            result.addAll(searchByTag(tag));
-        }
-
-        return new ArrayList<>(result);
+        return photos.stream()
+                .filter(p -> p.getTags().containsAll(tags))
+                .toList();
     }
 
     public List<Photo> searchByLocation(String location) {
@@ -73,8 +48,7 @@ public class PhotoManager {
             throw new IllegalArgumentException("Location cannot be null or empty");
         }
 
-        return photosByLocation.getOrDefault(location, Collections.emptySet())
-                .stream()
+        return photos.stream().filter(photo -> photo.getLocation().equalsIgnoreCase(location))
                 .toList();
     }
 
@@ -83,8 +57,7 @@ public class PhotoManager {
             throw new IllegalArgumentException("Date cannot be null");
         }
 
-        return photosByDate.getOrDefault(date, Collections.emptySet())
-                .stream()
+        return photos.stream().filter(photo -> photo.getDate().equals(date))
                 .toList();
     }
 }
