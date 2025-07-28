@@ -3,11 +3,19 @@ import java.util.*;
 
 public class PhotoManager {
     // photo indexes (for fast lookup)
-    private final Map<String, Set<Photo>> photosByLocation = new HashMap<>();
     private final Map<String, Set<Photo>> photosByTag = new HashMap<>();
     private final Map<String, Photo> photosById = new HashMap<>();
     private final Map<LocalDate, Set<Photo>> photosByDate = new HashMap<>();
     private final Map<String, Photo> photosByFilename = new HashMap<>();
+
+    // location coordinates store
+    private final Map<String, City> cityData = new HashMap<>();
+
+    public PhotoManager() {
+        // seed location data here
+        this.cityData.put("Cairo", new City("Cairo", new Coordinates(30.0444, 31.2357)));
+        this.cityData.put("Giza", new City("Giza", new Coordinates(29.9784, 31.1342)));
+    }
 
     public void uploadPhoto(Photo photo) {
         if (photo == null || photo.getId() == null || photo.getFilename() == null) {
@@ -28,10 +36,6 @@ public class PhotoManager {
 
         if (photo.getDate() != null) {
             photosByDate.computeIfAbsent(photo.getDate(), k -> new HashSet<>()).add(photo);
-        }
-
-        if (photo.getLocation() != null) {
-            photosByLocation.computeIfAbsent(photo.getLocation(), k -> new HashSet<>()).add(photo);
         }
 
         if (photo.getTags() != null) {
@@ -60,9 +64,15 @@ public class PhotoManager {
             throw new IllegalArgumentException("Tags cannot be null or empty");
         }
 
-        List<Photo> result = new ArrayList<>();
-        for (String tag : tags) {
-            result.addAll(searchByTag(tag));
+        Set<Photo> result = new HashSet<>();
+
+        Iterator tagIt = tags.iterator();
+        result.addAll(photosByTag.getOrDefault(tagIt.next(), Collections.emptySet()));
+
+        while (tagIt.hasNext()) {
+            String currentTag = (String) tagIt.next();
+            Set<Photo> photosContainingCurrentTag = photosByTag.getOrDefault(currentTag, Collections.emptySet());
+            result.retainAll(photosContainingCurrentTag); // intersection
         }
 
         return new ArrayList<>(result);
@@ -73,9 +83,20 @@ public class PhotoManager {
             throw new IllegalArgumentException("Location cannot be null or empty");
         }
 
-        return photosByLocation.getOrDefault(location, Collections.emptySet())
-                .stream()
-                .toList();
+        if (!cityData.containsKey(location)) {
+            throw new IllegalArgumentException("Location not found in coordinates map");
+        }
+
+        Set<Photo> result = new HashSet<>();
+
+        for (var entry : photosById.entrySet()) {
+            Photo photo = entry.getValue();
+            if (cityData.get(location).isWithin(photo.getCoordinates())) {
+                result.add(photo);
+            }
+        }
+
+        return new ArrayList<>(result);
     }
 
     public List<Photo> searchByDate(LocalDate date) {
